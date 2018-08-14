@@ -4,6 +4,7 @@ import roslaunch
 import time
 import numpy as np
 import os
+from os.path import expanduser
 
 from gym import utils, spaces
 from gym_gazebo.envs import gazebo_env
@@ -49,6 +50,7 @@ class GazeboSmartBotPincherKinectEnv(gazebo_env.GazeboEnv):
     currentPoseOfObject = Pose()
     state = np.array([])
     imageCount = 0
+    home = expanduser("~")
 
     def __init__(self):
         # print("__init__ of GazeboSmartBotPincherKinectEnv")
@@ -94,15 +96,15 @@ class GazeboSmartBotPincherKinectEnv(gazebo_env.GazeboEnv):
         # setting up the scene
         print("inserting table plane")
         self.insertObject(0.4, 0, 0.025/2,
-            "/home/joel/Documents/gazebo-models/tablePlane/tablePlane.sdf", "tablePlane")
+            self.home + "/Documents/gazebo-models/tablePlane/tablePlane.sdf", "tablePlane")
 
         print("inserting kinect sensor")
         self.insertObject(0.03, 0, 0.5,
-            "/home/joel/Documents/gazebo-models/kinect_ros/model.sdf", "kinect_ros", roll=0, pitch=np.pi/2, yaw=0)
+            self.home + "/Documents/gazebo-models/kinect_ros/model.sdf", "kinect_ros", roll=0, pitch=np.pi/2, yaw=0)
 
         print("inserting object to pick up")
         self.insertObject(0.1, 0, 0.1,
-            "/home/joel/Documents/gazebo-models/objectToPickUp/objectToPickUp.sdf", "objectToPickUp")
+            self.home + "/Documents/gazebo-models/objectToPickUp/objectToPickUp.sdf", "objectToPickUp")
 
         # initializing MoveIt variables
         # it's necessary to unpause the simulation in order to initialize the MoveGroupCommander, printing robot state etc.
@@ -279,7 +281,8 @@ class GazeboSmartBotPincherKinectEnv(gazebo_env.GazeboEnv):
         return data
     # read_kinect_point_cloud
 
-    def read_kinect_depth_image(self, setRandomPixelsToZero=False, saveImage=False, folder="/home/joel/Pictures/", saveToFile=False):
+    def read_kinect_depth_image(self, setRandomPixelsToZero=False, saveImage=False, saveToFile=False):
+        folder = self.home + "/Pictures/"
         data = None
         cv_image = None
         while(data is None or cv_image is None):
@@ -317,17 +320,17 @@ class GazeboSmartBotPincherKinectEnv(gazebo_env.GazeboEnv):
             image[mask] = 0
         if(saveImage):
             # saving depth image
-            # print("saving depth image to file")
             if(saveToFile):
                 np.set_printoptions(threshold="nan")
-                f = open("/home/joel/Documents/depth_image_simulation_" + str(self.imageCount) + ".txt", "w")
+                f = open(folder + "depth_image_sim_" + str(self.imageCount) + ".txt", "w")
                 print >>f, image
                 f.close()
+                # print("depth image saved as file")
             pathToImage = folder + "depth_image_sim_" + str(self.imageCount) + ".jpg"
             self.imageCount += 1
             try:
                 cv2.imwrite(pathToImage, image)
-                # print("depth image written to file")
+                # print("depth image saved as jpg")
             except Exception as e:
                 print(e)
         if(self.flattenImage):
