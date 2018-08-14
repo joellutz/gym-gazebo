@@ -6,6 +6,19 @@ logger = logging.getLogger(__name__)
 # Gazebo
 # ----------------------------------------
 
+# pincher arm envs
+register(
+    id='GazeboSmartBotPincherKinect-v0',
+    entry_point='gym_gazebo.envs.pincher_arm:GazeboSmartBotPincherKinectEnv',
+    # More arguments here
+)
+
+register(
+    id='GazeboSmartBotPincherKinectREAL_ARM-v0',
+    entry_point='gym_gazebo.envs.pincher_arm:GazeboSmartBotPincherKinectEnvREAL_ARM',
+    # More arguments here
+)
+
 # Turtlebot envs
 register(
     id='GazeboMazeTurtlebotLidar-v0',
@@ -25,7 +38,6 @@ register(
 register(
     id='GazeboCircuit2TurtlebotLidarNn-v0',
     entry_point='gym_gazebo.envs.turtlebot:GazeboCircuit2TurtlebotLidarNnEnv',
-    max_episode_steps=1000,
     # More arguments here
 )
 register(
@@ -99,10 +111,6 @@ register(
     id='GazeboModularScaraArm4And3DOF-v1',
     entry_point='gym_gazebo.envs.modular_scara:GazeboModularScara4And3DOFv1Env',
 )
-register(
-    id='RealModularScara3DOF-v0',
-    entry_point='gym_gazebo.envs.modular_scara:RealModularScara3DOFv0Env',
-)
 
 # cart pole
 register(
@@ -120,31 +128,22 @@ register(
     entry_point='gym_gazebo.envs.ARIAC:ARIACPickv0Env',
 )
 
-# MARA
+# MAIRA
 register(
-    id='MARASide3DOF-v0',
-    entry_point='gym_gazebo.envs.MARA:GazeboMARASide3DOFv0Env',
+    id='MAIRASide3DOF-v0',
+    entry_point='gym_gazebo.envs.MAIRA:GazeboMAIRASide3DOFv0Env',
 )
 register(
-    id='MARATop3DOF-v0',
-    entry_point='gym_gazebo.envs.MARA:GazeboMARATop3DOFv0Env',
-)
-
-register(
-    id='MARANoGripper-v0',
-    entry_point='gym_gazebo.envs.MARA:GazeboMARANoGripperv0Env',
+    id='MAIRATop3DOF-v0',
+    entry_point='gym_gazebo.envs.MAIRA:GazeboMAIRATop3DOFv0Env',
 )
 
 register(
-    id='MARAOrient-v0',
-    entry_point='gym_gazebo.envs.MARA:GazeboMARATopOrientv0Env',
+    id='MAIRANoGripper-v0',
+    entry_point='gym_gazebo.envs.MAIRA:GazeboMAIRANoGripperv0Env',
 )
 
 register(
-    id='MARAVisionOrient-v0',
-    entry_point='gym_gazebo.envs.MARA:GazeboMARATopOrientVisionv0Env',
-)
-register(
-    id='RealMARA3DoF-v0',
-    entry_point='gym_gazebo.envs.MARA:RealModularMara3DOFv0Env',
+    id='MAIRAOrient-v0',
+    entry_point='gym_gazebo.envs.MAIRA:GazeboMAIRATopOrientv0Env',
 )

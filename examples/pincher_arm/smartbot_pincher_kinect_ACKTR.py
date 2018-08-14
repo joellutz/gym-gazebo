@@ -5,13 +5,17 @@ import argparse
 import copy
 import sys
 
-# Use algorithms from baselines
+# Use algorithms from baselines (see https://github.com/openai/baselines)
 from baselines.acktr.acktr_cont import learn
 from baselines.acktr.policies import GaussianMlpPolicy
 from baselines.acktr.value_functions import NeuralNetValueFunction
 from baselines.common import set_global_seeds
 
-env = gym.make('GazeboModularScara3DOF-v3')
+
+# DOESN'T WORK (PROBLEMS WITH ENVIRONMENT INCOMPABILITY & PYTHON 2/3 ISSUES)
+
+
+env = gym.make('GazeboSmartBotPincherKinect-v0')
 initial_observation = env.reset()
 print("Initial observation: ", initial_observation)
 env.render()

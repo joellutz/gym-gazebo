@@ -1,0 +1,6 @@
+<launch>
+  <!-- for moving the real (pincher) arm -->
+  <include file="$(find turtlebot_arm_moveit_config)/launch/demo.launch" />
+  <!-- for reading out the real kinect sensor -->
+  <include file="$(find freenect_launch)/launch/freenect.launch" />
+</launch>
