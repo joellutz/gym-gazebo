@@ -100,30 +100,43 @@ def run(env_id, seed, noise_type, layer_norm, evaluation, **kwargs):
 def parse_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-    parser.add_argument('--env-id', type=str, default='GazeboSmartBotPincherKinect-v0')
-    boolean_flag(parser, 'render-eval', default=False)
-    boolean_flag(parser, 'layer-norm', default=True)
-    boolean_flag(parser, 'render', default=False)
+    # some rl parameters
+    parser.add_argument('--env-id', type=str, help="envionment to use", default='GazeboSmartBotPincherKinect-v0')
+    parser.add_argument('--gamma', type=float, help="discount factor for critic updates", default=0.99)
+    parser.add_argument('--noise-type', type=str,
+        help="noise type for exploration (choices are adaptive-param_xx, ou_xx, normal_xx, none)", default='adaptive-param_0.2')
+    parser.add_argument('--seed', help='RNG seed', type=int, default=0)
+    boolean_flag(parser, 'restore', help="load a previously trained model", default=False)
+
+    # training duration parameters
+    parser.add_argument('--nb-epochs', help="number of epochs aka episodes", type=int, default=10)
+    parser.add_argument('--nb-epoch-cycles', help="number of cycles in an epoch", type=int, default=20)
+    parser.add_argument('--nb-rollout-steps', help="number of rollout steps per epoch cycle", type=int, default=50)  # per epoch cycle and MPI worker
+    parser.add_argument('--num-timesteps', help="number of total timesteps (= nb_epochs * nb_epoch_cycles * nb_rollout_steps", type=int, default=None)
+    
+    # some neural network hyper-parameters
+    boolean_flag(parser, 'layer-norm', help="use layer normalization", default=True)
+    parser.add_argument('--critic-l2-reg', help="l2-regularization parameter for critic", type=float, default=1e-2)
+    parser.add_argument('--batch-size', help="minibatch-size for model fitting", type=int, default=64)  # per MPI worker
+    parser.add_argument('--actor-lr', help="actor network learning rate", type=float, default=1e-4)
+    parser.add_argument('--critic-lr', help="critic network learning rate", type=float, default=1e-3)
+    parser.add_argument('--nb-train-steps', help="number of model-fitting steps per epoch cycle", type=int, default=50)  # per epoch cycle and MPI worker
+
+    # graphical parameters
+    boolean_flag(parser, 'render', help="display simulation", default=False)
+
+    # various parameters
+    parser.add_argument('--clip-norm', type=float, default=None)
+    boolean_flag(parser, 'popart', default=False)
     boolean_flag(parser, 'normalize-returns', default=False)
     boolean_flag(parser, 'normalize-observations', default=True)
-    parser.add_argument('--seed', help='RNG seed', type=int, default=0)
-    parser.add_argument('--critic-l2-reg', type=float, default=1e-2)
-    parser.add_argument('--batch-size', type=int, default=64)  # per MPI worker
-    parser.add_argument('--actor-lr', type=float, default=1e-4)
-    parser.add_argument('--critic-lr', type=float, default=1e-3)
-    boolean_flag(parser, 'popart', default=False)
-    parser.add_argument('--gamma', type=float, default=0.99)
     parser.add_argument('--reward-scale', type=float, default=1.)
-    parser.add_argument('--clip-norm', type=float, default=None)
-    parser.add_argument('--nb-epochs', type=int, default=10)  # 500 with default settings, perform 1M steps total (1 epoch = approx 1.3h)
-    parser.add_argument('--nb-epoch-cycles', type=int, default=20) # 20
-    parser.add_argument('--nb-train-steps', type=int, default=50)  # per epoch cycle and MPI worker
-    parser.add_argument('--nb-eval-steps', type=int, default=100)  # per epoch cycle and MPI worker
-    parser.add_argument('--nb-rollout-steps', type=int, default=50)  # 100 per epoch cycle and MPI worker
-    parser.add_argument('--noise-type', type=str, default='adaptive-param_0.2')  # choices are adaptive-param_xx, ou_xx, normal_xx, none
-    parser.add_argument('--num-timesteps', type=int, default=None)
+
+    # evaluation environment (not possible with a gym-gazebo environment)
     boolean_flag(parser, 'evaluation', default=False)
-    boolean_flag(parser, 'restore', default=False)
+    boolean_flag(parser, 'render-eval', default=False)
+    parser.add_argument('--nb-eval-steps', type=int, default=100)  # per epoch cycle and MPI worker
+    
     args = parser.parse_args()
     # we don't directly specify timesteps for this script, so make sure that if we do specify them
     # they agree with the other parameters
@@ -154,15 +167,3 @@ if __name__ == '__main__':
         #     break
     # while
 # if __main___
-
-
-
-# with open(path, 'wb') as f:
-#             pickle.dump(self.policy, f)
-
-# latest_policy_path = os.path.join(logger.get_dir(), 'policy_latest.pkl')
-
-# Load policy.
-# with open(policy_file, 'rb') as f:
-#     policy = pickle.load(f)
-# env_name = policy.info['env_name']
