@@ -15,7 +15,8 @@ from gym.utils import seeding
 
 import sys
 import moveit_commander
-import moveit_msgs.msg
+from moveit_msgs.msg import RobotTrajectory
+from trajectory_msgs.msg import JointTrajectoryPoint
 import tf
 from gazebo_msgs.msg import LinkStates, ModelStates, LinkState, ContactsState, ContactState
 from nav_msgs.msg import Odometry
@@ -53,6 +54,7 @@ class GazeboSmartBotPincherKinectEnv(gazebo_env.GazeboEnv):
     home = expanduser("~")
 
     def __init__(self):
+        """ Initializes the environment and starts the gazebo simulation. """
         # print("__init__ of GazeboSmartBotPincherKinectEnv")
         # Launch the simulation with the given launch file name
         # launch file is in gym-gazebo/gym_gazebo/env/assets/launch/
@@ -133,6 +135,7 @@ class GazeboSmartBotPincherKinectEnv(gazebo_env.GazeboEnv):
     # __init__
 
     def seed(self, seed=None):
+        """ Seeds the environment (for replicating the pseudo-random processes). """
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
     # seed
@@ -166,6 +169,7 @@ class GazeboSmartBotPincherKinectEnv(gazebo_env.GazeboEnv):
     # reset
 
     def close(self):
+        """ Closes the environment and shuts down the simulation. """
         print("closing GazeboSmartBotPincherKinectEnv")
         # When finished, shut down moveit_commander.
         moveit_commander.roscpp_shutdown()
@@ -173,6 +177,7 @@ class GazeboSmartBotPincherKinectEnv(gazebo_env.GazeboEnv):
     # close
 
     def step(self, action):
+        """ Executes the action (i.e. moves the arm to the pose) and returns the reward and a new state (depth image). """
 
         self.unpause_simulation()
 
@@ -199,13 +204,9 @@ class GazeboSmartBotPincherKinectEnv(gazebo_env.GazeboEnv):
         print(text)
         pose = self.createPose(x, y, z, roll, pitch, yaw)
         success = self.moveArmToPose(pose)
-        
-        # Sometimes success == False, even though the arm has moved! So we have to check manually if the arm has moved
-        arm_joint_values = self.group_arm.get_current_joint_values()
-        armHasMoved = not all(abs(joint_value) < 0.001 for joint_value in arm_joint_values)
-        self.printMovingArmSuccess(success or armHasMoved, printSuccess=True)
+        self.printMovingArmSuccess(success, printSuccess=True)
 
-        if(not success and not armHasMoved):
+        if(not success):
             # unreachable position has been selected by the RL algorithm
             reward = self.rewardUnreachablePosition
             done = False
@@ -223,7 +224,7 @@ class GazeboSmartBotPincherKinectEnv(gazebo_env.GazeboEnv):
 
         # return arm to home position
         success = self.moveArmToHomePosition()
-        self.printMovingArmSuccess(success, printFailure=True)
+        self.printMovingArmSuccess(success, printFailure=True, target="TO HOME POSITION")
         
         # set the ObjectToPickUp where it was before (at the beginning of the step() function)
         self.setPoseOfObjectToPickUp(pickup_pose_old)
@@ -244,6 +245,7 @@ class GazeboSmartBotPincherKinectEnv(gazebo_env.GazeboEnv):
     # step
 
     def unpause_simulation(self):
+        """ Unpauses the gazebo simulation. """
         rospy.wait_for_service("/gazebo/unpause_physics")
         try:
             self.unpause_proxy()
@@ -253,6 +255,7 @@ class GazeboSmartBotPincherKinectEnv(gazebo_env.GazeboEnv):
     # unpause_simulation
 
     def pause_simulation(self):
+        """ Pauses the gazebo simulation. """
         rospy.wait_for_service("/gazebo/pause_physics")
         try:
             self.pause_proxy()
@@ -262,6 +265,7 @@ class GazeboSmartBotPincherKinectEnv(gazebo_env.GazeboEnv):
     # pause_simulation
 
     def reset_simulation(self):
+        """ Resets the gazebo simulation. """
         try:
             rospy.wait_for_service("/gazebo/reset_simulation", timeout=5)
             self.reset_proxy()
@@ -271,17 +275,8 @@ class GazeboSmartBotPincherKinectEnv(gazebo_env.GazeboEnv):
             return None
     # reset_simulation
 
-    def read_kinect_point_cloud(self):
-        data = None
-        while data is None:
-            try:
-                data = rospy.wait_for_message("/camera/depth/points", PointCloud2, timeout=5)
-            except:
-                pass
-        return data
-    # read_kinect_point_cloud
-
     def read_kinect_depth_image(self, setRandomPixelsToZero=False, saveImage=False, saveToFile=False):
+        """ Reads the depth image from the kinect camera, adds Gaussian noise, crops, normalizes and saves it. """
         folder = self.home + "/Pictures/"
         data = None
         cv_image = None
@@ -340,6 +335,7 @@ class GazeboSmartBotPincherKinectEnv(gazebo_env.GazeboEnv):
     # read_kinect_depth_image
     
     def insertObject(self, x, y, z, path_to_sdf, name, roll=0.0, pitch=0.0, yaw=0.0, namespace="world"):
+        """ Inserts an object into the gazebo simulation from a SDF file specified by the path. """
         initial_pose = self.createPose(x, y, z, roll, pitch, yaw)
         f = open(path_to_sdf, "r")
         sdff = f.read()
@@ -349,6 +345,7 @@ class GazeboSmartBotPincherKinectEnv(gazebo_env.GazeboEnv):
     # insertObject
 
     def createPose(self, x=0.0, y=0.0, z=0.0, roll=0.0, pitch=0.0, yaw=0.0):
+        """ Creates a Pose object with the given position & orientation parameters. """
         pose = Pose()
         pose.position.x = x
         pose.position.y = y
@@ -364,6 +361,7 @@ class GazeboSmartBotPincherKinectEnv(gazebo_env.GazeboEnv):
     # createPose
 
     def setPoseOfObjectToPickUp(self, pose):
+        """ Sets the pose (position & orientation) of the object to pick up in the gazebo simulation (with zero velocity aka twist). """
         # sets pose and twist of a link.  All children link poses/twists of the URDF tree are not updated accordingly, but should be.
         newLinkState = LinkState()
         # link name, link_names are in gazebo scoped name notation, [model_name::body_name]
@@ -383,6 +381,8 @@ class GazeboSmartBotPincherKinectEnv(gazebo_env.GazeboEnv):
     # setPoseOfObjectToPickUp
 
     def getPoseOfObjectAndGripper(self):
+        """ Retrieves the pose (position & orientation) of the object to pick up
+            and the positions of the two gripper fingers of the robot arm. """
         # print("getting pose (position & orientation) of object to pick up")
         exceptionCount = 0
         object_positions = None
@@ -457,7 +457,8 @@ class GazeboSmartBotPincherKinectEnv(gazebo_env.GazeboEnv):
     # getPoseOfObjectAndGripper
 
     def getUnitVectorsFromOrientation(self, quaternion):
-        # calculating the unit vectors (described in the /world coordinate system) of an object
+        """ Calculates the unit vectors (described in the /world coordinate system)
+            of an object, which orientation is given by the quaternion. """
         explicit_quat = [quaternion.x, quaternion.y, quaternion.z, quaternion.w]
         roll, pitch, yaw = tf.transformations.euler_from_quaternion(explicit_quat)
 
@@ -474,6 +475,8 @@ class GazeboSmartBotPincherKinectEnv(gazebo_env.GazeboEnv):
     # getUnitVectorsFromOrientation
 
     def calculateReward(self, pickup_pose_old, pickup_pose, gripper_right_position, gripper_left_position):
+        """ Calculates the reward for the current timestep, according to the gripper position and the pickup position. 
+            A high reward is given if the gripper could grasp the box (pickup) if it would close the gripper. """
         pickup_position_old = np.matrix([[pickup_pose_old.position.x],[pickup_pose_old.position.y],[pickup_pose_old.position.z]])
         
         pickup_position = np.matrix([[pickup_pose.position.x],[pickup_pose.position.y],[pickup_pose.position.z]])
@@ -570,7 +573,7 @@ class GazeboSmartBotPincherKinectEnv(gazebo_env.GazeboEnv):
     # calculateReward
 
     def isPositionInCuboid(self, gripper_position, p1, p2, p4, p5, u, v, w):
-        # checking if gripper_position is in the correct location (i.e. within the cuboid described by u, v & w)
+        """ Checks if gripper_position is in the correct location (i.e. within the cuboid described by u, v & w). """
         # (see https://math.stackexchange.com/questions/1472049/check-if-a-point-is-inside-a-rectangular-shaped-area-3d)
         if(np.dot(u, gripper_position) > np.dot(u, p1) and np.dot(u, gripper_position) < np.dot(u, p2)):
             # print("gripper is in correct position (x-axis)")
@@ -583,44 +586,94 @@ class GazeboSmartBotPincherKinectEnv(gazebo_env.GazeboEnv):
     # isPositionInCuboid
 
     def moveArmToHomePosition(self):
-        # print("going to home position")
+        """ Moves the arm to its home position. """
         # Option 1: setting all joint values to zero (if that's not already the case)
-        arm_joint_values = self.group_arm.get_current_joint_values()
-        if(not all(abs(joint_values) < 0.001 for joint_values in arm_joint_values)):
+        numTries = 0
+        while(not self.armIsInHomePosition()):
+            if(numTries > 0):
+                print("move arm to home position try nr. {}".format(numTries + 1))
+                rospy.sleep(0.2)
+            numTries += 1
             self.group_arm.clear_pose_targets()
+            arm_joint_values = self.group_arm.get_current_joint_values()
             for i in range(len(arm_joint_values)):
                 arm_joint_values[i] = 0.0
             self.group_arm.set_joint_value_target(arm_joint_values)
-            plan0 = self.group_arm.plan()
-            # success = self.group_arm.execute(plan0)
-            success = self.group_arm.go(wait=True)
-            return success
-        else: # we should already be in the home position
-            return True
+            traj = self.group_arm.plan()
+            success = self.executeTrajectory(traj, speedUp=3.0)
+        # while
+        
+        return True
         
         # Option 2: named pose (defined in the moveit package of the robot arm)
         # self.group_arm.clear_pose_targets()
         # self.group_arm.set_named_target("right_up")
         # planHome = self.group_arm.plan()
         # successTry1 = self.group_arm.execute(planHome)
-        # successTry1 = self.group_arm.go(wait=True)  
+        # successTry1 = self.group_arm.go(wait=True)
     # moveArmToHomePosition
 
     def moveArmToPose(self, targetPose, execute=True):
+        """ Moves the arm to the specified pose. """
         self.group_arm.clear_pose_targets()
         self.group_arm.set_pose_target(targetPose)
-        planArm = self.group_arm.plan()
+        # plan the trajectory
+        traj = self.group_arm.plan()
+        couldFindPlan = len(traj.joint_trajectory.points) > 0
         if(execute):
-            # success = self.group_arm.execute(planArm)
-            success = self.group_arm.go(wait=True)
+            success = self.executeTrajectory(traj, speedUp=3.0)
+            # Sometimes success == False, even though the arm has moved! So we have to check manually if the arm has moved
+            armHasMoved = not self.armIsInHomePosition()
+            success = success or armHasMoved
+            if(couldFindPlan and not success):
+                print("********************************************* plan found but failed to execute! *********************************************")
             return success
+        else:
+            return couldFindPlan
     # moveArmToPose
+
+    def executeTrajectory(self, traj, speedUp=1.0):
+        """ Executes the given trajectory with a possible speed up to accelerate the learning. """
+        # Taken from: https://github.com/ros-planning/moveit_ros/issues/368#issuecomment-29717359
+        new_traj = RobotTrajectory()
+        new_traj = traj
+
+        n_joints = len(traj.joint_trajectory.joint_names)
+        n_points = len(traj.joint_trajectory.points)
+
+        points = list(traj.joint_trajectory.points)
+
+        for i in range(n_points):  
+            point = JointTrajectoryPoint()
+            point.time_from_start = traj.joint_trajectory.points[i].time_from_start / speedUp
+            point.velocities = list(traj.joint_trajectory.points[i].velocities)
+            point.accelerations = list(traj.joint_trajectory.points[i].accelerations)
+            point.positions = traj.joint_trajectory.points[i].positions
+
+            for j in range(n_joints):
+                point.velocities[j] = point.velocities[j] * speedUp
+                point.accelerations[j] = point.accelerations[j] * speedUp**2
+
+            points[i] = point
+
+        new_traj.joint_trajectory.points = points
+
+        # execute the trajectory
+        success = self.group_arm.execute(new_traj, wait=True)
+        return success
+    # executeTrajectory
+
+    def armIsInHomePosition(self):
+        """ Returns True if arm is in its home position (i.e. all joint values are 0) """
+        arm_joint_values = self.group_arm.get_current_joint_values()
+        return all(abs(joint_value) < 0.001 for joint_value in arm_joint_values)
+    # armIsInHomePosition
  
-    def printMovingArmSuccess(self, success, printFailure=False, printSuccess=False):
+    def printMovingArmSuccess(self, success, printFailure=False, printSuccess=False, target=""):
         if(not success and printFailure):
-            print("********************************************* FAILED TO MOVE ARM *********************************************")
+            print("********************************************* FAILED TO MOVE ARM " + target + " *********************************************")
         elif(success and printSuccess):
-            print("********************************************* MOVED ARM SUCCESSFULLY *********************************************")
+            print("********************************************* MOVED ARM SUCCESSFULLY " + target + " *********************************************")
     # printMovingArmSuccess
 
 # class GazeboSmartBotPincherKinectEnv
